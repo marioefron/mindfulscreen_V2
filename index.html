@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MindfulScreen - Premium & Drive</title>
+    <title>MindfulScreen - Estadísticas + Excel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
     <!-- React Core -->
@@ -17,15 +17,6 @@
     <!-- Utilities -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, updateDoc, increment, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js";
-
-        window.FirebaseLib = { initializeApp, getFirestore, doc, setDoc, updateDoc, increment, onSnapshot, collection, getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken };
-    </script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
@@ -54,14 +45,10 @@
         const { useState, useEffect, useMemo, useRef } = React;
         const { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } = window.Recharts || {};
         
-        // ---------------------------------------------------------
-        // CONFIGURACIÓN DE TU DRIVE (GOOGLE SHEETS)
-        // PEGA AQUÍ TU URL ENTRE LAS COMILLAS
-        // ---------------------------------------------------------
+        // =========================================================
+        // CONFIGURACIÓN: PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
+        // =========================================================
         const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6WSzPiKSaArbW1TwNgs3XA7Xnfe32JAhfmgCbfEFjLgqLfhpH6tqfdapbIdT75icfEg/exec"; 
-        
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'mindful-screen-app';
         
         const Icon = ({ name, size = 20, className = "" }) => {
             useEffect(() => {
@@ -71,10 +58,10 @@
         };
 
         const CATEGORIES = [
-            { id: 'social', name: 'Redes Sociales', icon: 'smartphone', color: '#ec4899', bg: 'bg-pink-500', fill: 'bg-pink-500', border: 'border-pink-500' },
-            { id: 'games', name: 'Videojuegos', icon: 'gamepad-2', color: '#a855f7', bg: 'bg-purple-500', fill: 'bg-purple-500', border: 'border-purple-500' },
-            { id: 'ai', name: 'IA (Chatbots)', icon: 'bot', color: '#3b82f6', bg: 'bg-blue-500', fill: 'bg-blue-500', border: 'border-blue-500' },
-            { id: 'web', name: 'Búsquedas web', icon: 'globe', color: '#22c55e', bg: 'bg-green-500', fill: 'bg-green-500', border: 'border-green-500' },
+            { id: 'social', name: 'Redes Sociales', icon: 'smartphone', color: '#ec4899', bg: 'bg-pink-500', fill: 'bg-pink-500' },
+            { id: 'games', name: 'Videojuegos', icon: 'gamepad-2', color: '#a855f7', bg: 'bg-purple-500', fill: 'bg-purple-500' },
+            { id: 'ai', name: 'IA (Chatbots)', icon: 'bot', color: '#3b82f6', bg: 'bg-blue-500', fill: 'bg-blue-500' },
+            { id: 'web', name: 'Búsquedas web', icon: 'globe', color: '#22c55e', bg: 'bg-green-500', fill: 'bg-green-500' },
         ];
 
         const EMOTIONS = [
@@ -87,76 +74,39 @@
 
         function App() {
             const [isSetup, setIsSetup] = useState(true);
-            const [user, setUser] = useState(null);
             const [customLimits, setCustomLimits] = useState({ social: 60, games: 60, ai: 60, web: 60 });
             const [timers, setTimers] = useState({});
             const [activeCategory, setActiveCategory] = useState(null);
             const [surveyCategory, setSurveyCategory] = useState(null);
             const [isSubmitting, setIsSubmitting] = useState(false);
-            const [showStats, setShowStats] = useState(false); 
-            const [globalStats, setGlobalStats] = useState({});
-            const [personalStats, setPersonalStats] = useState({});
+            const [showStats, setShowStats] = useState(false);
+            
+            // Estado para las estadísticas locales (se guarda en memoria)
+            const [localStats, setLocalStats] = useState({
+                social: { Feliz: 0, Neutral: 0, Triste: 0, Enojado: 0, Entusiasmado: 0 },
+                games: { Feliz: 0, Neutral: 0, Triste: 0, Enojado: 0, Entusiasmado: 0 },
+                ai: { Feliz: 0, Neutral: 0, Triste: 0, Enojado: 0, Entusiasmado: 0 },
+                web: { Feliz: 0, Neutral: 0, Triste: 0, Enojado: 0, Entusiasmado: 0 },
+            });
             
             const lastUpdateRef = useRef(null);
 
-            // Firebase Initialization
-            useEffect(() => {
-                const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } = window.FirebaseLib;
-                const app = initializeApp(firebaseConfig);
-                const auth = getAuth(app);
-                const initAuth = async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                };
-                initAuth().catch(console.error);
-                const unsubscribe = onAuthStateChanged(auth, setUser);
-                return () => unsubscribe();
-            }, []);
-
-            // Firestore Listeners
-            useEffect(() => {
-                if (!user) return;
-                const { getFirestore, collection, onSnapshot } = window.FirebaseLib;
-                const db = getFirestore();
-                
-                const unsubGlobal = onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'emotions'), (snap) => {
-                    const data = {}; snap.forEach(doc => data[doc.id] = doc.data());
-                    setGlobalStats(data);
-                });
-
-                const unsubPersonal = onSnapshot(collection(db, 'artifacts', appId, 'users', user.uid, 'emotions'), (snap) => {
-                    const data = {}; snap.forEach(doc => data[doc.id] = doc.data());
-                    setPersonalStats(data);
-                });
-
-                return () => { unsubGlobal(); unsubPersonal(); };
-            }, [user]);
-
             const handleEmotionSelect = async (emotionKey) => {
-                if (!user || isSubmitting) return;
+                if (isSubmitting) return;
                 setIsSubmitting(true);
                 const currentCategory = surveyCategory;
-                setSurveyCategory(null);
 
-                const { getFirestore, doc, setDoc, updateDoc, increment } = window.FirebaseLib;
-                const db = getFirestore();
-                
-                const globalRef = doc(db, 'artifacts', appId, 'public', 'data', 'emotions', currentCategory);
-                const personalRef = doc(db, 'artifacts', appId, 'users', user.uid, 'emotions', currentCategory);
-
-                const saveToFirebase = async (ref) => {
-                    try { await updateDoc(ref, { [emotionKey]: increment(1) }); } 
-                    catch (e) { 
-                        const init = {}; EMOTIONS.forEach(emo => init[emo.key] = 0); 
-                        init[emotionKey] = 1; await setDoc(ref, init); 
+                // 1. Actualizar estadísticas locales inmediatamente
+                setLocalStats(prev => ({
+                    ...prev,
+                    [currentCategory]: {
+                        ...prev[currentCategory],
+                        [emotionKey]: prev[currentCategory][emotionKey] + 1
                     }
-                };
+                }));
 
-                const syncToSheets = async () => {
-                    if (!GOOGLE_SHEETS_SCRIPT_URL || GOOGLE_SHEETS_SCRIPT_URL === "TU_URL_DE_APPS_SCRIPT_AQUI") return;
+                // 2. Enviar datos al Excel
+                if (GOOGLE_SHEETS_SCRIPT_URL && !GOOGLE_SHEETS_SCRIPT_URL.includes("TU_URL")) {
                     try {
                         await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
                             method: 'POST',
@@ -164,19 +114,18 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
                                 timestamp: new Date().toLocaleString(),
-                                userId: user.uid,
+                                userId: "Usuario-Local",
                                 category: currentCategory,
                                 emotion: emotionKey
                             })
                         });
-                    } catch (e) { console.error("Sheets Error:", e); }
-                };
-
-                try {
-                    await Promise.all([saveToFirebase(globalRef), saveToFirebase(personalRef), syncToSheets()]);
-                } finally {
-                    setIsSubmitting(false);
+                    } catch (e) {
+                        console.error("Error al enviar a Excel:", e);
+                    }
                 }
+                
+                setSurveyCategory(null);
+                setIsSubmitting(false);
             };
 
             const startApp = () => {
@@ -224,7 +173,10 @@
                 }).filter(d => d.value > 0);
             }, [timers, customLimits]);
 
-            if (!BarChart) return null;
+            const barChartData = CATEGORIES.map(cat => ({
+                name: cat.name,
+                ...localStats[cat.id]
+            }));
 
             return (
                 <div className="min-h-screen flex justify-center items-center p-0 sm:p-4">
@@ -233,8 +185,8 @@
                         {isSetup ? (
                             <div className="flex-1 flex flex-col p-8">
                                 <header className="pt-6 pb-8 text-center">
-                                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Mindful<span className="text-blue-600">Config</span></h1>
-                                    <p className="text-gray-400 text-xs mt-2 uppercase tracking-widest font-bold">Ajusta tus tiempos</p>
+                                    <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">Mindful<span className="text-blue-600">Excel</span></h1>
+                                    <p className="text-gray-400 text-xs mt-2 uppercase tracking-widest font-bold">Configura tus límites</p>
                                 </header>
                                 <div className="flex-1 overflow-y-auto hide-scrollbar flex flex-col gap-4">
                                     {CATEGORIES.map(cat => (
@@ -252,18 +204,9 @@
                                             </div>
                                         </div>
                                     ))}
-                                    
-                                    <div className="mt-4 p-5 bg-green-50 rounded-3xl border border-green-100 flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center text-white">
-                                            <Icon name="cloud-upload" size={14} />
-                                        </div>
-                                        <p className="text-[10px] font-bold text-green-700 uppercase tracking-tight leading-tight">
-                                            Backup en Drive activado <br/> <span className="text-[8px] opacity-70">Los datos se sincronizarán automáticamente</span>
-                                        </p>
-                                    </div>
                                 </div>
                                 <button onClick={startApp} className="mt-6 w-full py-5 bg-blue-600 text-white rounded-3xl font-black shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all uppercase tracking-widest text-xs">
-                                    Empezar ahora
+                                    Empezar Sesión
                                 </button>
                             </div>
                         ) : (
@@ -292,9 +235,9 @@
                                                     <div className="flex-1">
                                                         <div className="flex justify-between font-extrabold text-[11px] mb-1.5 text-gray-800 uppercase tracking-tight">
                                                             <span>{cat.name}</span>
-                                                            <span className={timeRem === 0 ? 'text-red-500 font-black' : 'text-gray-400'}>{formatTime(timeRem)} / {customLimits[cat.id]}m</span>
+                                                            <span className={timeRem === 0 ? 'text-red-500 font-black' : 'text-gray-400'}>{formatTime(timeRem)}</span>
                                                         </div>
-                                                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden relative border border-gray-50">
+                                                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden border border-gray-50">
                                                             <div className={`h-full transition-all duration-1000 ${timeRem === 0 ? 'bg-red-500' : cat.fill}`} style={{ width: `${percent}%` }}></div>
                                                         </div>
                                                     </div>
@@ -303,43 +246,41 @@
                                         })}
                                     </div>
 
-                                    <div className="mt-4 bg-gray-50 rounded-[2.5rem] p-6 border border-gray-100">
-                                        <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Uso en tiempo real</p>
-                                        <div className="h-40 w-full relative">
+                                    <div className="mt-4 bg-gray-50 rounded-[2.5rem] p-6 border border-gray-100 flex-1 flex flex-col">
+                                        <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Uso hoy</p>
+                                        <div className="flex-1 min-h-[180px] relative">
                                             {pieData.length > 0 ? (
                                                 <ResponsiveContainer width="100%" height="100%">
                                                     <PieChart>
-                                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={55} paddingAngle={5} dataKey="value" stroke="none">
+                                                        <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={5} dataKey="value" stroke="none">
                                                             {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
                                                         </Pie>
                                                     </PieChart>
                                                 </ResponsiveContainer>
                                             ) : (
-                                                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-300 font-bold uppercase text-center px-10">
-                                                    Inicia una sesión para ver datos
+                                                <div className="absolute inset-0 flex items-center justify-center text-[10px] text-gray-300 font-bold uppercase text-center px-10 leading-relaxed">
+                                                    Activa un cronómetro para ver el gráfico
                                                 </div>
                                             )}
-                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                <Icon name="activity" size={16} className="text-gray-200" />
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div className="p-8">
-                                    <button onClick={() => setShowStats(true)} className="w-full py-4 bg-gray-900 text-white rounded-3xl font-black text-xs flex items-center justify-center gap-3 hover:bg-black transition-all uppercase tracking-widest shadow-xl">
-                                        <Icon name="bar-chart-2" size={18} /> Estadísticas Globales
+                                
+                                <div className="p-8 flex flex-col gap-3">
+                                    <button onClick={() => setShowStats(true)} className="w-full py-4 bg-gray-900 text-white rounded-[2rem] font-black text-xs flex items-center justify-center gap-3 hover:bg-black transition-all uppercase tracking-widest shadow-xl">
+                                        <Icon name="bar-chart-2" size={18} /> Mis Estadísticas
                                     </button>
+                                    <p className="text-center text-[9px] text-gray-300 font-bold uppercase tracking-widest">Sincronizado con Google Sheets</p>
                                 </div>
                             </>
                         )}
 
                         {surveyCategory && (
-                            <div className="absolute inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-8">
+                            <div className="absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-8">
                                 <div className="bg-white rounded-[3rem] p-10 w-full text-center scale-in-center shadow-2xl">
-                                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6"><Icon name="activity" size={32} /></div>
+                                    <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6"><Icon name="smile" size={32} /></div>
                                     <h2 className="text-2xl font-black text-gray-800 mb-2">Pausa Mental</h2>
-                                    <p className="text-sm text-gray-400 mb-8 font-medium">¿Cómo te has sentido usando <span className="text-gray-900 font-bold">{CATEGORIES.find(c => c.id === surveyCategory)?.name}</span>?</p>
+                                    <p className="text-sm text-gray-400 mb-8 font-medium">¿Cómo te has sentido usando <br/><span className="text-gray-900 font-bold">{CATEGORIES.find(c => c.id === surveyCategory)?.name}</span>?</p>
                                     <div className="grid grid-cols-5 gap-3">
                                         {EMOTIONS.map(emo => (
                                             <button key={emo.key} onClick={() => handleEmotionSelect(emo.key)} className="flex flex-col items-center gap-2 group">
@@ -348,7 +289,7 @@
                                             </button>
                                         ))}
                                     </div>
-                                    {isSubmitting && <div className="mt-8 text-[9px] text-blue-500 font-black uppercase tracking-[0.2em] loading-pulse">Sincronizando con Drive...</div>}
+                                    {isSubmitting && <div className="mt-8 text-[9px] text-blue-500 font-black uppercase tracking-[0.2em] loading-pulse">Enviando a Excel...</div>}
                                 </div>
                             </div>
                         )}
@@ -357,40 +298,38 @@
                             <div className="absolute inset-0 bg-white z-40 p-8 flex flex-col animate-in slide-in-from-bottom duration-300">
                                 <div className="flex justify-between items-start mb-8">
                                     <div>
-                                        <h2 className="text-2xl font-black text-gray-900 tracking-tighter">Insights</h2>
-                                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Global + Personal</p>
+                                        <h2 className="text-2xl font-black text-gray-900 tracking-tighter">Tu Historial</h2>
+                                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Emociones registradas hoy</p>
                                     </div>
                                     <button onClick={() => setShowStats(false)} className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><Icon name="x" size={20}/></button>
                                 </div>
                                 
-                                <div className="flex-1 overflow-y-auto hide-scrollbar -mx-2">
+                                <div className="flex-1 overflow-y-auto hide-scrollbar">
                                     <div className="h-64 w-full mb-8">
-                                        <p className="text-[10px] font-black text-gray-300 uppercase mb-4 tracking-widest">Distribución Comunitaria</p>
                                         <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={CATEGORIES.map(cat => ({ name: cat.name, ...globalStats[cat.id] }))} margin={{ bottom: 30 }}>
+                                            <BarChart data={barChartData} margin={{ bottom: 40 }}>
                                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                                                <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} angle={-25} textAnchor="end" />
-                                                <YAxis fontSize={9} axisLine={false} tickLine={false} />
-                                                <Tooltip cursor={{fill: '#f8fafc'}} />
-                                                {EMOTIONS.map(emo => <Bar key={emo.key} dataKey={emo.key} stackId="a" fill={emo.color} radius={[2, 2, 0, 0]} />)}
+                                                <XAxis dataKey="name" fontSize={9} axisLine={false} tickLine={false} angle={-35} textAnchor="end" interval={0} />
+                                                <YAxis fontSize={9} axisLine={false} tickLine={false} allowDecimals={false} />
+                                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}} />
+                                                {EMOTIONS.map(emo => <Bar key={emo.key} dataKey={emo.key} stackId="a" fill={emo.color} radius={[0, 0, 0, 0]} />)}
                                             </BarChart>
                                         </ResponsiveContainer>
                                     </div>
 
-                                    <p className="text-[10px] font-black text-gray-300 uppercase mb-4 tracking-widest">Tus Emojis por Categoría</p>
-                                    <div className="grid grid-cols-1 gap-3">
+                                    <div className="space-y-3">
                                         {CATEGORIES.map(cat => (
                                             <div key={cat.id} className="p-4 bg-gray-50 rounded-3xl border border-gray-100">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <div className={`w-2 h-2 rounded-full ${cat.bg}`}></div>
-                                                    <span className="text-xs font-black text-gray-700 uppercase">{cat.name}</span>
+                                                    <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">{cat.name}</span>
                                                 </div>
-                                                <div className="flex justify-between">
+                                                <div className="flex justify-between px-2">
                                                     {EMOTIONS.map(emo => (
                                                         <div key={emo.key} className="flex flex-col items-center">
                                                             <div className="text-xl mb-1">{emo.emoji}</div>
-                                                            <div className="text-[10px] font-bold text-gray-800 bg-white px-2 py-0.5 rounded-lg shadow-sm border border-gray-100">
-                                                                {personalStats[cat.id]?.[emo.key] || 0}
+                                                            <div className="text-[10px] font-bold text-gray-800">
+                                                                {localStats[cat.id]?.[emo.key] || 0}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -398,6 +337,9 @@
                                             </div>
                                         ))}
                                     </div>
+                                </div>
+                                <div className="mt-6 pt-4 border-t border-gray-100 text-center">
+                                    <p className="text-[8px] text-gray-300 font-bold uppercase">Nota: Estos datos se reinician al recargar la página</p>
                                 </div>
                             </div>
                         )}
