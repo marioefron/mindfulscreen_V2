@@ -1,15 +1,41 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Play, Pause, Smartphone, Gamepad2, Bot, Globe, Activity, RotateCcw, X, BarChart2, ChevronRight, Plus, Minus, Settings } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { 
+  Play, 
+  Pause, 
+  Smartphone, 
+  Gamepad2, 
+  Bot, 
+  Globe, 
+  Activity, 
+  RotateCcw, 
+  X, 
+  BarChart2, 
+  ChevronRight, 
+  Plus, 
+  Minus, 
+  Settings 
+} from 'lucide-react';
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell 
+} from 'recharts';
 
-// URL del script de Google Sheets
+// URL opcional para Google Sheets (se mantiene la del usuario)
 const GOOGLE_SHEETS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyY1ADh0RYu8M0XnaNksF-ho-qOQuqLDkneVQ6rEqiNIXrCDN73MHLnbZmaGuuz4F_fXw/exec"; 
 
 const CATEGORIES = [
-  { id: 'social', name: 'Redes Sociales', icon: Smartphone, color: '#ec4899', tailwindColor: 'text-pink-500', bg: 'bg-pink-500', activeBg: 'bg-pink-600', fill: 'bg-pink-500', border: 'border-pink-500', lightBg: 'bg-pink-50' },
-  { id: 'games', name: 'Videojuegos', icon: Gamepad2, color: '#a855f7', tailwindColor: 'text-purple-500', bg: 'bg-purple-500', activeBg: 'bg-purple-600', fill: 'bg-purple-500', border: 'border-purple-500', lightBg: 'bg-purple-50' },
-  { id: 'ai', name: 'IA (Chatbots)', icon: Bot, color: '#3b82f6', tailwindColor: 'text-blue-500', bg: 'bg-blue-500', activeBg: 'bg-blue-600', fill: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
-  { id: 'web', name: 'Búsquedas web', icon: Globe, color: '#22c55e', tailwindColor: 'text-green-500', bg: 'bg-green-500', activeBg: 'bg-green-600', fill: 'bg-green-500', border: 'border-green-500', lightBg: 'bg-green-50' },
+  { id: 'social', name: 'Redes Sociales', icon: Smartphone, color: '#ec4899', bg: 'bg-pink-500', activeBg: 'bg-pink-600', fill: 'bg-pink-500', border: 'border-pink-500', lightBg: 'bg-pink-50' },
+  { id: 'games', name: 'Videojuegos', icon: Gamepad2, color: '#a855f7', bg: 'bg-purple-500', activeBg: 'bg-purple-600', fill: 'bg-purple-500', border: 'border-purple-500', lightBg: 'bg-purple-50' },
+  { id: 'ai', name: 'IA (Chatbots)', icon: Bot, color: '#3b82f6', bg: 'bg-blue-500', activeBg: 'bg-blue-600', fill: 'bg-blue-500', border: 'border-blue-500', lightBg: 'bg-blue-50' },
+  { id: 'web', name: 'Búsquedas web', icon: Globe, color: '#22c55e', bg: 'bg-green-500', activeBg: 'bg-green-600', fill: 'bg-green-500', border: 'border-green-500', lightBg: 'bg-green-50' },
 ];
 
 const EMOTIONS = [
@@ -39,12 +65,16 @@ export default function App() {
   const lastUpdateRef = useRef(null);
   const audioContextRef = useRef(null);
 
+  // Inicializar contexto de audio (requiere interacción del usuario)
   const initAudio = () => {
     if (!audioContextRef.current) {
       const AudioContext = window.AudioContext || window.webkitAudioContext;
       if (AudioContext) {
         audioContextRef.current = new AudioContext();
       }
+    }
+    if (audioContextRef.current?.state === 'suspended') {
+      audioContextRef.current.resume();
     }
   };
 
@@ -65,6 +95,7 @@ export default function App() {
     }));
   };
 
+  // Lógica del temporizador
   useEffect(() => {
     let interval;
     if (activeCategory && !isSetup) {
@@ -95,7 +126,6 @@ export default function App() {
   const playAlarmSound = () => {
     const ctx = audioContextRef.current;
     if (!ctx) return;
-    if (ctx.state === 'suspended') ctx.resume();
 
     try {
       for (let i = 0; i < 3; i++) {
@@ -142,6 +172,7 @@ export default function App() {
     const usedSeconds = totalLimitSeconds - remainingSeconds;
     const durationMin = (usedSeconds / 60).toFixed(2);
 
+    // Actualizar estadísticas locales
     setStats((prev) => ({
       ...prev,
       [surveyCategory]: {
@@ -150,6 +181,7 @@ export default function App() {
       }
     }));
 
+    // Envío a Google Sheets si está configurado
     if (GOOGLE_SHEETS_SCRIPT_URL) {
       try {
         await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
@@ -185,53 +217,51 @@ export default function App() {
     }).filter(d => d.value > 0);
   }, [timers, customLimits]);
 
-  // Obtener el nombre de la categoría para la encuesta
-  const getSurveyCategoryName = () => {
-    const cat = CATEGORIES.find(c => c.id === surveyCategory);
-    return cat ? cat.name : "";
-  };
-
   return (
-    <div className="min-h-screen bg-gray-100 text-gray-800 font-sans flex justify-center items-center p-0 sm:p-4">
-      <div className="w-full h-full sm:h-auto max-w-sm bg-white flex flex-col sm:rounded-[2.5rem] relative sm:shadow-2xl overflow-hidden min-h-screen sm:min-h-[800px]">
+    <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex justify-center items-center p-0 sm:p-4 overflow-hidden">
+      <div className="w-full h-screen sm:h-[800px] max-w-sm bg-white flex flex-col sm:rounded-[3rem] relative sm:shadow-2xl overflow-hidden border-x border-slate-200">
         
+        {/* PANTALLA DE CONFIGURACIÓN */}
         {isSetup ? (
-          <div className="flex-1 flex flex-col p-8 animate-in fade-in duration-500">
+          <div className="flex-1 flex flex-col p-8 animate-in fade-in duration-500 overflow-y-auto">
             <header className="pt-6 pb-8 text-center">
-              <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                Tus <span className="text-blue-600">Metas</span>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                Tus <span className="text-indigo-600">Metas</span>
               </h1>
-              <p className="text-gray-500 mt-2 text-sm leading-relaxed">Configura cuánto tiempo quieres usar cada app hoy.</p>
+              <p className="text-slate-500 mt-2 text-sm leading-relaxed">Configura cuánto tiempo quieres usar cada app hoy.</p>
             </header>
-            <div className="flex-1 flex flex-col gap-6 overflow-y-auto pr-2">
+            
+            <div className="flex-1 flex flex-col gap-4">
               {CATEGORIES.map((cat) => (
-                <div key={cat.id} className="bg-gray-50 p-4 rounded-3xl border border-gray-100 flex items-center justify-between transition-all hover:border-gray-200">
+                <div key={cat.id} className="bg-slate-50 p-4 rounded-3xl border border-slate-100 flex items-center justify-between transition-all hover:border-indigo-200 group">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cat.bg} text-white shadow-sm`}><cat.icon size={20} /></div>
-                    <span className="font-bold text-sm text-gray-700">{cat.name}</span>
+                    <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${cat.bg} text-white shadow-sm transform group-hover:scale-110 transition-transform`}><cat.icon size={20} /></div>
+                    <span className="font-bold text-sm text-slate-700">{cat.name}</span>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => adjustLimit(cat.id, -5)} className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 active:scale-90"><Minus size={16} /></button>
-                    <div className="w-12 text-center font-mono font-bold text-gray-800">{customLimits[cat.id]}<span className="text-[10px] ml-0.5 font-sans">m</span></div>
-                    <button onClick={() => adjustLimit(cat.id, 5)} className="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 active:scale-90"><Plus size={16} /></button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => adjustLimit(cat.id, -5)} className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-500 hover:border-red-200 active:scale-90 transition-all"><Minus size={16} /></button>
+                    <div className="w-10 text-center font-mono font-bold text-slate-800 text-sm">{customLimits[cat.id]}<span className="text-[10px] ml-0.5 font-sans opacity-50">m</span></div>
+                    <button onClick={() => adjustLimit(cat.id, 5)} className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-green-50 hover:text-green-500 hover:border-green-200 active:scale-90 transition-all"><Plus size={16} /></button>
                   </div>
                 </div>
               ))}
             </div>
-            <button onClick={startApp} className="mt-8 w-full py-4 bg-blue-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-blue-700 shadow-lg active:scale-95 transition-all">
+            
+            <button onClick={startApp} className="mt-8 w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 shadow-lg shadow-indigo-200 active:scale-95 transition-all">
               Comenzar <ChevronRight size={20} />
             </button>
           </div>
         ) : (
+          /* DASHBOARD PRINCIPAL */
           <>
             <header className="pt-10 pb-4 text-center px-6">
-              <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                Mindful<span className="text-blue-600">Screen</span>
+              <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+                Mindful<span className="text-indigo-600">Screen</span>
               </h1>
             </header>
 
-            <div className="flex-1 px-6 py-2 flex flex-col gap-6 overflow-y-auto">
-              <div className="flex flex-col gap-6">
+            <div className="flex-1 px-6 py-2 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
+              <div className="flex flex-col gap-5">
                 {CATEGORIES.map((cat) => {
                   const isActive = activeCategory === cat.id;
                   const isOtherActive = activeCategory !== null && !isActive;
@@ -242,27 +272,26 @@ export default function App() {
                   const isDepleted = timeRemaining === 0;
 
                   return (
-                    <div key={cat.id} className={`flex items-center gap-4 transition-opacity duration-300 ${isOtherActive ? 'opacity-40 grayscale-[50%]' : 'opacity-100'}`}>
+                    <div key={cat.id} className={`flex items-center gap-4 transition-all duration-300 ${isOtherActive ? 'opacity-30 blur-[1px]' : 'opacity-100'}`}>
                       <button
                         onClick={() => isDepleted ? setTimers(prev => ({...prev, [cat.id]: limitInSeconds})) : handleToggle(cat.id)}
                         disabled={isOtherActive && !isDepleted}
-                        className={`w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-white shadow-md transition-transform active:scale-95 ${
+                        className={`w-14 h-14 shrink-0 rounded-3xl flex items-center justify-center text-white shadow-lg transition-all active:scale-95 ${
                           isDepleted ? 'bg-red-500 animate-pulse' : isActive ? cat.activeBg : cat.bg
-                        } ${isOtherActive && !isDepleted ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                        } ${isOtherActive && !isDepleted ? 'cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
                       >
-                        {isDepleted ? <RotateCcw className="w-5 h-5" /> : isActive ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                        {isDepleted ? <RotateCcw className="w-6 h-6" /> : isActive ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
                       </button>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-end mb-1">
-                          <h3 className="font-bold text-base text-gray-800">{cat.name}</h3>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-end mb-1.5 px-1">
+                          <h3 className="font-bold text-sm text-slate-800 truncate">{cat.name}</h3>
+                          <span className={`text-xs font-mono font-bold ${isDepleted ? 'text-red-500' : 'text-slate-500'}`}>{formatTime(timeRemaining)}</span>
                         </div>
-                        <div className="relative w-full h-1.5 bg-gray-200 rounded-full my-1.5">
-                          <div className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-linear ${isDepleted ? 'bg-red-500' : cat.fill}`} style={{ width: `${progressPercent}%` }}></div>
-                          <div className={`absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 transition-all duration-1000 ease-linear shadow-sm ${isDepleted ? 'border-red-500' : cat.border}`} style={{ left: `calc(${progressPercent}% - 5px)` }}></div>
-                        </div>
-                        <div className="flex justify-between text-[10px] font-semibold text-gray-400">
-                          <span>{formatTime(timeElapsed)}</span>
-                          <span className={isDepleted ? 'text-red-500 font-bold' : ''}>{formatTime(timeRemaining)}</span>
+                        <div className="relative w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-50">
+                          <div 
+                            className={`absolute top-0 left-0 h-full rounded-full transition-all duration-1000 ease-linear ${isDepleted ? 'bg-red-500' : cat.fill}`} 
+                            style={{ width: `${progressPercent}%` }}
+                          ></div>
                         </div>
                       </div>
                     </div>
@@ -270,9 +299,10 @@ export default function App() {
                 })}
               </div>
 
-              <div className="bg-gray-50 rounded-[2rem] p-4 mt-2 border border-gray-100">
-                <h4 className="text-center text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Distribución de uso</h4>
-                <div className="h-56 w-full relative">
+              {/* GRÁFICO RESUMEN */}
+              <div className="bg-slate-50 rounded-[2.5rem] p-5 mt-2 border border-slate-200/50">
+                <h4 className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Uso de hoy</h4>
+                <div className="h-48 w-full relative">
                   {pieChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -280,9 +310,9 @@ export default function App() {
                           data={pieChartData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={35}
-                          outerRadius={55}
-                          paddingAngle={5}
+                          innerRadius={45}
+                          outerRadius={65}
+                          paddingAngle={6}
                           dataKey="value"
                           stroke="none"
                           animationDuration={800}
@@ -291,35 +321,59 @@ export default function App() {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip formatter={(value) => formatTime(value)} />
+                        <Tooltip 
+                          content={({ active, payload }) => {
+                            if (active && payload && payload.length) {
+                              return (
+                                <div className="bg-white p-2 border border-slate-100 rounded-xl shadow-xl">
+                                  <p className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">{payload[0].name}</p>
+                                  <p className="text-xs font-mono font-black text-slate-900">{formatTime(payload[0].value)}</p>
+                                </div>
+                              );
+                            }
+                            return null;
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 text-xs text-center px-10">
-                      Comienza a usar una app para ver la distribución
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-300 text-[10px] text-center px-10">
+                      <div className="w-12 h-12 rounded-full border-2 border-dashed border-slate-200 flex items-center justify-center mb-2">
+                         <Activity size={16} className="opacity-30" />
+                      </div>
+                      Pulsa "Play" para empezar a registrar tu tiempo
+                    </div>
+                  )}
+                  {pieChartData.length > 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                       <span className="text-[10px] font-bold text-slate-400">TOTAL</span>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="px-6 pb-6 pt-2 mt-auto flex flex-col gap-3">
-              <button onClick={() => setShowStats(true)} className="w-full py-4 rounded-xl border-2 border-gray-300 font-bold text-gray-600 flex items-center justify-center gap-2 hover:bg-gray-50 transition-all active:scale-[0.98]">
-                <BarChart2 className="w-5 h-5" /> Ver Estadísticas
+            <div className="px-6 pb-8 pt-4 mt-auto">
+              <button 
+                onClick={() => setShowStats(true)} 
+                className="w-full py-4 rounded-2xl bg-slate-900 text-white font-bold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all active:scale-[0.98] shadow-xl shadow-slate-200"
+              >
+                <BarChart2 className="w-5 h-5" /> Ver Reporte Detallado
               </button>
             </div>
           </>
         )}
 
+        {/* MODAL DE ENCUESTA EMOCIONAL */}
         {surveyCategory && (
-          <div className="absolute inset-0 bg-gray-900/80 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2.5rem] p-8 w-full shadow-2xl flex flex-col items-center">
-              <div className="mb-4 bg-blue-50 p-4 rounded-full">
-                <Activity className="w-8 h-8 text-blue-500" />
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-6 animate-in fade-in zoom-in duration-300">
+            <div className="bg-white rounded-[3rem] p-8 w-full shadow-2xl flex flex-col items-center border border-white/20">
+              <div className="mb-6 bg-indigo-50 p-5 rounded-full ring-8 ring-indigo-50/50">
+                <Activity className="w-8 h-8 text-indigo-500" />
               </div>
-              <h2 className="text-2xl font-extrabold text-gray-800 mb-3 text-center leading-tight">Reflexión</h2>
-              <p className="text-gray-600 text-base font-medium mb-8 text-center px-2">
-                ¿Cómo te sentiste al usar <span className="text-blue-600 font-bold">{getSurveyCategoryName()}</span>?
+              <h2 className="text-2xl font-black text-slate-800 mb-2 text-center">Reflexión</h2>
+              <p className="text-slate-500 text-sm font-medium mb-8 text-center px-2">
+                ¿Cómo te has sentido tras usar <span className="text-indigo-600 font-bold">{CATEGORIES.find(c => c.id === surveyCategory)?.name}</span>?
               </p>
               
               <div className="grid grid-cols-5 gap-2 w-full mb-8">
@@ -328,24 +382,26 @@ export default function App() {
                     key={emo.key} 
                     onClick={() => handleEmotionSelect(emo.key)} 
                     disabled={isSubmitting} 
-                    className="flex flex-col items-center gap-2 p-1 rounded-2xl hover:bg-blue-50 transition-all active:scale-90 group"
+                    className="flex flex-col items-center gap-2 p-1 group"
                   >
-                    <span className="text-4xl mb-1 transform transition-transform group-hover:scale-110">{emo.emoji}</span>
-                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter group-hover:text-blue-500">{emo.key}</span>
+                    <div className="text-4xl transform transition-transform group-hover:scale-125 group-active:scale-90 duration-200 cursor-pointer">
+                      {emo.emoji}
+                    </div>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-indigo-600">{emo.key}</span>
                   </button>
                 ))}
               </div>
 
               {isSubmitting ? (
-                <div className="flex items-center gap-2 py-2">
-                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                   <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                <div className="flex items-center gap-1.5 h-6">
+                   {[0, 150, 300].map(d => (
+                     <div key={d} className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }}></div>
+                   ))}
                 </div>
               ) : (
                 <button 
                   onClick={() => setSurveyCategory(null)} 
-                  className="text-gray-400 text-xs font-bold uppercase hover:text-gray-600"
+                  className="text-slate-400 text-[10px] font-black uppercase hover:text-slate-600 tracking-widest px-4 py-2"
                 >
                   Omitir ahora
                 </button>
@@ -354,34 +410,41 @@ export default function App() {
           </div>
         )}
 
+        {/* PANTALLA DE ESTADÍSTICAS DETALLADAS */}
         {showStats && (
           <div className="absolute inset-0 bg-white z-40 flex flex-col p-6 overflow-y-auto animate-in slide-in-from-bottom duration-500">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-black text-gray-900">Estadísticas</h2>
-              <button onClick={() => setShowStats(false)} className="p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"><X className="w-6 h-6 text-gray-500" /></button>
+            <div className="flex justify-between items-center mb-8 sticky top-0 bg-white/80 backdrop-blur-sm z-10 py-2">
+              <h2 className="text-2xl font-black text-slate-900">Tu Bienestar</h2>
+              <button 
+                onClick={() => setShowStats(false)} 
+                className="p-2 bg-slate-100 rounded-2xl hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
             
-            <div className="space-y-6">
-              {/* Resumen por categorías */}
-              <div className="grid grid-cols-2 gap-3">
-                {CATEGORIES.map(cat => (
-                  <div key={cat.id} className={`${cat.lightBg} p-3 rounded-2xl border border-gray-100`}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className={`w-6 h-6 rounded-lg ${cat.bg} flex items-center justify-center text-white`}>
-                        <cat.icon size={14} />
+            <div className="space-y-8 pb-10">
+              <div className="grid grid-cols-2 gap-4">
+                {CATEGORIES.map(cat => {
+                  const totalLogs = Object.values(stats[cat.id]).reduce((a, b) => a + b, 0);
+                  return (
+                    <div key={cat.id} className={`${cat.lightBg} p-4 rounded-3xl border border-slate-100/50`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`w-7 h-7 rounded-xl ${cat.bg} flex items-center justify-center text-white shadow-sm`}>
+                          <cat.icon size={14} />
+                        </div>
+                        <span className="text-[9px] font-black uppercase text-slate-500 tracking-tight">{cat.name}</span>
                       </div>
-                      <span className="text-[10px] font-black uppercase text-gray-500 tracking-tight">{cat.name}</span>
+                      <div className="text-lg font-black text-slate-800 leading-none">
+                        {totalLogs} <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">Logs</span>
+                      </div>
                     </div>
-                    <div className="text-sm font-bold text-gray-800">
-                      {Object.values(stats[cat.id]).reduce((a, b) => a + b, 0)} <span className="text-[9px] text-gray-400 font-normal">registros</span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
-              {/* Gráfico principal mejorado */}
-              <div className="bg-gray-50 rounded-[2.5rem] p-6 border border-gray-100 shadow-inner">
-                <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-6 text-center">Frecuencia Emocional</h3>
+              <div className="bg-slate-50 rounded-[2.5rem] p-6 border border-slate-100 shadow-inner">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-8 text-center">Frecuencia Emocional</h3>
                 <div className="h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={barChartData} margin={{ top: 0, right: 0, left: -25, bottom: 0 }}>
@@ -392,6 +455,7 @@ export default function App() {
                         axisLine={false} 
                         tickLine={false} 
                         tick={{fill: '#94a3b8', fontWeight: 700}}
+                        interval={0}
                       />
                       <YAxis 
                         fontSize={9} 
@@ -400,8 +464,8 @@ export default function App() {
                         tick={{fill: '#94a3b8'}}
                       />
                       <Tooltip 
-                        cursor={{fill: '#f1f5f9'}} 
-                        contentStyle={{borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)'}}
+                        cursor={{fill: '#f1f5f9', opacity: 0.5}} 
+                        contentStyle={{borderRadius: '20px', border: 'none', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.1)', padding: '12px'}}
                       />
                       {EMOTIONS.map(emo => (
                         <Bar 
@@ -410,34 +474,39 @@ export default function App() {
                           stackId="a" 
                           fill={emo.color} 
                           radius={[0, 0, 0, 0]} 
-                          barSize={35}
+                          barSize={32}
                         />
                       ))}
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Leyenda personalizada */}
-                <div className="flex flex-wrap justify-center gap-3 mt-6">
+                <div className="flex flex-wrap justify-center gap-2 mt-8">
                   {EMOTIONS.map(emo => (
-                    <div key={emo.key} className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-full shadow-sm border border-gray-100">
+                    <div key={emo.key} className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-full shadow-sm border border-slate-100">
                       <span className="text-xs">{emo.emoji}</span>
-                      <span className="text-[9px] font-bold text-gray-600">{emo.key}</span>
+                      <span className="text-[8px] font-black text-slate-500 uppercase">{emo.key}</span>
                       <div className="w-1.5 h-1.5 rounded-full" style={{backgroundColor: emo.color}}></div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Tips de Bienestar */}
-              <div className="bg-blue-600 p-6 rounded-[2rem] text-white shadow-lg">
-                <div className="flex items-center gap-3 mb-2">
-                  <Activity size={20} />
-                  <span className="text-sm font-bold">Resumen Diario</span>
+              <div className="bg-indigo-600 p-6 rounded-[2.5rem] text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
+                <div className="absolute -right-4 -top-4 opacity-10 group-hover:rotate-12 transition-transform duration-500">
+                   <Activity size={100} />
                 </div>
-                <p className="text-xs opacity-90 leading-relaxed">
-                  Tus datos se sincronizan automáticamente con tu panel de control en la nube para ayudarte a tomar mejores decisiones digitales.
-                </p>
+                <div className="relative z-10">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-white/20 rounded-xl">
+                      <Activity size={18} />
+                    </div>
+                    <span className="text-sm font-black uppercase tracking-wider">Mindful Tip</span>
+                  </div>
+                  <p className="text-xs font-medium leading-relaxed opacity-90">
+                    Cambiar entre apps consume mucha energía mental. Intenta completar bloques de 15 minutos en una sola categoría para mejorar tu concentración.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
